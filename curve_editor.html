@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>CURVE — Animation Easing Editor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap');
+
+:root {
+  --bg: #080810;
+  --panel: #10101a;
+  --border: #22223a;
+  --accent: #e8ff47;
+  --accent2: #47d4ff;
+  --accent3: #ff6b6b;
+  --accent4: #b47fff;
+  --text: #ddddf0;
+  --muted: #50506a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  position: sticky; top: 0; z-index: 100;
+  gap: 10px;
+}
+.logo {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800; font-size: 17px;
+  letter-spacing: 0.1em; color: var(--accent);
+  white-space: nowrap;
+}
+.logo sub { font-size: 10px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+.hdr-tools { display: flex; gap: 6px; }
+
+.btn {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; font-weight: 700;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  background: transparent; color: var(--muted);
+  cursor: pointer; border-radius: 2px;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  transition: all 0.13s; white-space: nowrap;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.on  { border-color: var(--accent2); color: var(--accent2); background: rgba(71,212,255,0.08); }
+.btn.pri { background: var(--accent); color: #080810; border-color: var(--accent); }
+.btn.pri:hover { background: #d4e83c; }
+.btn.del { border-color: var(--accent3); color: var(--accent3); }
+.btn.del:hover { background: var(--accent3); color: #080810; }
+
+.main {
+  display: flex; flex-direction: column;
+  gap: 12px; padding: 12px;
+  max-width: 860px; margin: 0 auto; width: 100%;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px; padding: 12px;
+}
+
+.sec {
+  font-size: 9px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.sec::after { content:''; flex:1; height:1px; background:var(--border); }
+.dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+
+/* Presets */
+.presets { display:flex; gap:5px; flex-wrap:wrap; }
+.pbtn {
+  font-family:'Space Mono',monospace; font-size:10px;
+  padding:5px 10px; border:1px solid var(--border);
+  background:transparent; color:var(--muted); cursor:pointer;
+  border-radius:2px; transition:all 0.13s;
+  text-transform:uppercase; letter-spacing:0.04em;
+}
+.pbtn:hover,.pbtn.on { border-color:var(--accent2); color:var(--accent2); }
+
+/* Toolbar */
+.toolbar { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+
+/* Canvas */
+.canvas-wrap {
+  position:relative; width:100%; max-width:500px; margin:0 auto;
+  aspect-ratio:1/1;
+  touch-action:none;
+}
+#curveCanvas { width:100%; height:100%; display:block; border-radius:2px; cursor:crosshair; }
+.chint {
+  position:absolute; bottom:8px; left:10px;
+  font-size:9px; color:var(--muted);
+  pointer-events:none; letter-spacing:0.05em; line-height:1.7;
+}
+
+/* Chips */
+.chips { display:flex; gap:7px; flex-wrap:wrap; margin-top:10px; }
+.chip {
+  font-size:9px; color:var(--muted);
+  background:var(--bg); border:1px solid var(--border);
+  padding:4px 8px; border-radius:2px;
+}
+.chip b { color:var(--text); font-weight:400; }
+
+/* Preview scenes */
+.scenes {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px; margin-bottom:10px;
+}
+@media(min-width:500px) { .scenes { grid-template-columns:repeat(4,1fr); } }
+
+.scene {
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:3px; height:88px;
+  display:flex; align-items:center; justify-content:center;
+  position:relative; overflow:hidden;
+}
+.slabel {
+  position:absolute; bottom:5px; left:0; right:0;
+  text-align:center; font-size:9px; color:var(--muted);
+  letter-spacing:0.06em; text-transform:uppercase;
+  pointer-events:none;
+}
+
+#pT { width:20px; height:20px; background:var(--accent); border-radius:3px; position:absolute; left:6px; top:50%; transform:translateY(-50%); box-shadow:0 0 10px rgba(232,255,71,0.4); }
+#pS { width:20px; height:20px; background:var(--accent2); border-radius:50%; box-shadow:0 0 10px rgba(71,212,255,0.4); }
+#pR { width:20px; height:20px; background:var(--accent4); border-radius:3px; box-shadow:0 0 10px rgba(180,127,255,0.4); }
+#pO { width:20px; height:20px; background:var(--accent3); border-radius:50%; box-shadow:0 0 10px rgba(255,107,107,0.4); }
+
+/* Preview graph canvas */
+#pgCanvas {
+  width:100%; height:50px; display:block;
+  border:1px solid var(--border); border-radius:2px;
+  background:var(--bg); margin-bottom:8px;
+}
+
+/* Progress bar */
+.pbar { height:2px; background:var(--border); border-radius:1px; overflow:hidden; margin-bottom:10px; }
+.pfill { height:100%; background:var(--accent); width:0%; border-radius:1px; }
+
+/* Play row */
+.play-row { display:flex; gap:7px; align-items:center; flex-wrap:wrap; }
+.dur-wrap { display:flex; align-items:center; gap:7px; margin-left:auto; font-size:10px; color:var(--muted); }
+input[type=range] {
+  -webkit-appearance:none; height:2px; background:var(--border);
+  outline:none; cursor:pointer; width:75px; border-radius:1px;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:11px; height:11px;
+  background:var(--accent2); border-radius:50%;
+}
+
+/* Output */
+.tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:11px; }
+.tab {
+  font-family:'Space Mono',monospace; font-size:9px;
+  letter-spacing:0.08em; text-transform:uppercase;
+  padding:7px 11px; background:none; border:none;
+  color:var(--muted); cursor:pointer;
+  border-bottom:2px solid transparent; margin-bottom:-1px;
+  transition:all 0.13s;
+}
+.tab.on { color:var(--accent); border-bottom-color:var(--accent); }
+.tab:hover { color:var(--text); }
+.codeblock {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:2px; padding:12px;
+  font-size:10px; line-height:1.8;
+  color:#a0ffb0; white-space:pre; overflow-x:auto;
+  min-height:80px; position:relative;
+  font-family:'Space Mono',monospace;
+}
+.cflash {
+  position:absolute; top:7px; right:7px;
+  font-size:9px; padding:3px 7px;
+  background:var(--accent); color:var(--bg);
+  border-radius:2px; opacity:0; pointer-events:none;
+  font-weight:700; transition:opacity 0.25s;
+}
+.cflash.on { opacity:1; }
+.out-row { display:flex; gap:7px; margin-top:9px; flex-wrap:wrap; }
+
+/* Saved */
+.slist { display:flex; flex-direction:column; gap:5px; }
+.srow {
+  display:flex; align-items:center; gap:9px;
+  padding:7px 9px; background:var(--bg);
+  border:1px solid var(--border); border-radius:2px;
+  cursor:pointer; transition:border-color 0.13s;
+}
+.srow:hover { border-color:var(--accent2); }
+.srow img { border-radius:2px; border:1px solid var(--border); flex-shrink:0; }
+.sname { font-size:10px; flex:1; color:var(--text); }
+.sdel { font-size:11px; color:var(--muted); padding:2px 6px; }
+.sdel:hover { color:var(--accent3); }
+.empty { font-size:10px; color:var(--muted); padding:6px 0; }
+
+@media(max-width:480px) {
+  header { padding:9px 12px; }
+  .main { padding:9px; gap:9px; }
+  .logo sub { display:none; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">CURVE<sub>easing editor v2</sub></div>
+  <div class="hdr-tools">
+    <button class="btn" id="btnReset">Reset</button>
+    <button class="btn pri" id="btnSave">Save</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Presets -->
+  <div class="card">
+    <div class="sec"><span class="dot" style="background:var(--muted)"></span>Presets</div>
+    <div class="presets">
+      <button class="pbtn on"  data-p="linear">Linear</button>
+      <button class="pbtn" data-p="ease">Ease</button>
+      <button class="pbtn" data-p="easeIn">Ease In</button>
+      <button class="pbtn" data-p="easeOut">Ease Out</button>
+      <button class="pbtn" data-p="easeInOut">Ease InOut</button>
+      <button class="pbtn" data-p="overshoot">Overshoot</button>
+      <button class="pbtn" data-p="spring">Spring</button>
+      <button class="pbtn" data-p="anticipate">Anticipate</button>
+    </div>
+  </div>
+
+  <!-- Curve Editor -->
+  <div class="card">
+    <div class="toolbar">
+      <span class="sec" style="margin:0 4px 0 0; flex:none">
+        <span class="dot" style="background:var(--accent)"></span>Curve
+      </span>
+      <button class="btn" id="btnMode">Mode: Select</button>
+      <button class="btn" id="btnSnap">Snap: Off</button>
+      <button class="btn" id="btnGrid">Grid: Off</button>
+      <button class="btn del" id="btnDelPt" style="display:none">Del Point</button>
+    </div>
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="curveCanvas"></canvas>
+      <div class="chint" id="chint">SELECT: drag red anchors or blue handles &nbsp;·&nbsp; switch to ADD to insert points</div>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <!-- Preview -->
+  <div class="card">
+    <div class="sec"><span class="dot" style="background:var(--accent2)"></span>Animation Preview</div>
+    <div class="scenes">
+      <div class="scene" id="sT"><div id="pT"></div><div class="slabel">Translate</div></div>
+      <div class="scene" id="sS"><div id="pS"></div><div class="slabel">Scale</div></div>
+      <div class="scene" id="sR"><div id="pR"></div><div class="slabel">Rotate</div></div>
+      <div class="scene" id="sO"><div id="pO"></div><div class="slabel">Opacity</div></div>
+    </div>
+    <canvas id="pgCanvas"></canvas>
+    <div class="pbar"><div class="pfill" id="pfill"></div></div>
+    <div class="play-row">
+      <button class="btn pri" id="btnPlay">&#9654; Play</button>
+      <button class="btn" id="btnLoop">Loop: Off</button>
+      <button class="btn" id="btnPP">PingPong: Off</button>
+      <div class="dur-wrap">
+        <span>Dur</span>
+        <input type="range" id="durSlider" min="200" max="4000" step="100" value="1200">
+        <span id="durLbl">1.2s</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export -->
+  <div class="card">
+    <div class="sec"><span class="dot" style="background:var(--accent3)"></span>Export</div>
+    <div class="tabs">
+      <button class="tab on" data-t="css">CSS</button>
+      <button class="tab" data-t="js">JS/GSAP</button>
+      <button class="tab" data-t="lut">LUT</button>
+      <button class="tab" data-t="json">JSON</button>
+    </div>
+    <div class="codeblock" id="codeblock"><span class="cflash" id="cflash">COPIED!</span></div>
+    <div class="out-row">
+      <button class="btn" id="btnCopy">Copy</button>
+      <button class="btn" id="btnDl">Download</button>
+    </div>
+  </div>
+
+  <!-- Saved -->
+  <div class="card">
+    <div class="sec"><span class="dot" style="background:var(--muted)"></span>Saved Curves</div>
+    <div class="slist" id="savedList"></div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  CURVE EDITOR v2
+//  Node model: nodes[] = { a:[x,y], h1:[x,y], h2:[x,y] }
+//  h1 = in-handle (absolute coords), h2 = out-handle (absolute)
+// ═══════════════════════════════════════════════════════════════
+
+let nodes = [];
+let snapOn = false, gridOn = false, addMode = false;
+let selected = null;  // { ni, part:'a'|'h1'|'h2' }
+let isDragging = false;
+let currentTab = 'css';
+let looping = false, pingpong = false;
+let animReq = null;
+let saved = JSON.parse(localStorage.getItem('cv2') || '[]');
+
+const SNAP_DIV = 8;
+const PAD = 0.1; // fraction of canvas used as padding
+
+let dispYMin = -0.1, dispYMax = 1.1;
+
+function computeDisplayBounds() {
+  let yMin = 0, yMax = 1;
+  for (let seg = 0; seg < nodes.length-1; seg++) {
+    for (let k = 0; k <= 120; k++) {
+      const [,y] = evalSeg(seg, k/120);
+      if (y < yMin) yMin = y;
+      if (y > yMax) yMax = y;
+    }
+  }
+  for (const n of nodes) {
+    yMin = Math.min(yMin, n.h1[1], n.h2[1]);
+    yMax = Math.max(yMax, n.h1[1], n.h2[1]);
+  }
+  const extra = Math.max(0.12, (yMax - yMin) * 0.15);
+  dispYMin = yMin - extra;
+  dispYMax = yMax + extra;
+}
+
+// ── Presets ──────────────────────────────────────────────────
+const PRESETS = {
+  linear:    () => twoNodeCurve([0,0],[0.333,0.333],[0.667,0.667],[1,1]),
+  ease:      () => twoNodeCurve([0,0],[0.25,0.1],  [0.25,1.0],   [1,1]),
+  easeIn:    () => twoNodeCurve([0,0],[0.42,0.0],  [1.0,1.0],    [1,1]),
+  easeOut:   () => twoNodeCurve([0,0],[0.0,0.0],   [0.58,1.0],   [1,1]),
+  easeInOut: () => twoNodeCurve([0,0],[0.42,0.0],  [0.58,1.0],   [1,1]),
+  overshoot: () => twoNodeCurve([0,0],[0.17,0.89], [0.32,1.27],  [1,1]),
+  spring:    () => twoNodeCurve([0,0],[0.34,1.56], [0.64,1.0],   [1,1]),
+  anticipate:() => twoNodeCurve([0,0],[0.36,-0.4], [0.63,1.0],   [1,1]),
+};
+
+function twoNodeCurve(p0,cp1,cp2,p3) {
+  nodes = [
+    { a:[p0[0],p0[1]], h1:[p0[0]-0.001,p0[1]], h2:[cp1[0],cp1[1]] },
+    { a:[p3[0],p3[1]], h1:[cp2[0],cp2[1]],      h2:[p3[0]+0.001,p3[1]] },
+  ];
+}
+
+// ── Canvas elements ──────────────────────────────────────────
+const canvas = document.getElementById('curveCanvas');
+const ctx    = canvas.getContext('2d');
+const wrap   = document.getElementById('canvasWrap');
+
+const pgCv   = document.getElementById('pgCanvas');
+const pgCtx  = pgCv.getContext('2d');
+
+function resizeAll() {
+  const cw = wrap.clientWidth;
+  canvas.width  = Math.round(cw * devicePixelRatio);
+  canvas.height = Math.round(cw * devicePixelRatio);
+  canvas.style.width  = cw + 'px';
+  canvas.style.height = cw + 'px';
+
+  const pw = pgCv.parentElement.clientWidth - 24;
+  pgCv.width  = Math.round(pw * devicePixelRatio);
+  pgCv.height = Math.round(50 * devicePixelRatio);
+  pgCv.style.width  = pw + 'px';
+  pgCv.style.height = '50px';
+
+  draw(); drawGraph(0);
+}
+window.addEventListener('resize', resizeAll);
+
+// ── Coordinate helpers ────────────────────────────────────────
+function toC(nx, ny) {
+  const s = canvas.width, p = PAD*s, inn = s-2*p;
+  return [p + nx*inn, p + (1 - (ny - dispYMin)/(dispYMax - dispYMin)) * inn];
+}
+function fromC(cx, cy) {
+  const s = canvas.width, p = PAD*s, inn = s-2*p;
+  return [(cx-p)/inn, dispYMin + (1 - (cy-p)/inn) * (dispYMax - dispYMin)];
+}
+function snapV(v) { return snapOn ? Math.round(v*SNAP_DIV)/SNAP_DIV : v; }
+function snapPt(pt) { return [snapV(pt[0]), snapV(pt[1])]; }
+
+// ── Main draw ─────────────────────────────────────────────────
+function draw() {
+  computeDisplayBounds();
+  const s = canvas.width, p = PAD*s, inn = s-2*p;
+  ctx.clearRect(0,0,s,s);
+
+  // grid dots
+  if (gridOn) {
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    for (let i=0; i<=SNAP_DIV; i++) for (let j=0; j<=SNAP_DIV; j++) {
+      ctx.beginPath();
+      ctx.arc(p+i/SNAP_DIV*inn, p+j/SNAP_DIV*inn, 1.4*devicePixelRatio, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  // vertical grid lines at x = 0, 0.25, 0.5, 0.75, 1
+  ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=1;
+  for (let i=0; i<=4; i++) {
+    const [gx]=toC(i/4, 0);
+    ctx.beginPath(); ctx.moveTo(gx,p); ctx.lineTo(gx,p+inn); ctx.stroke();
+  }
+  // horizontal grid lines evenly spaced in canvas space
+  for (let i=0; i<=4; i++) {
+    const gy=p+i/4*inn;
+    ctx.beginPath(); ctx.moveTo(p,gy); ctx.lineTo(p+inn,gy); ctx.stroke();
+  }
+
+  // y=0 and y=1 boundary lines
+  ctx.strokeStyle='rgba(255,255,255,0.13)'; ctx.lineWidth=1;
+  const [,yb0]=toC(0,0), [,yb1]=toC(0,1);
+  ctx.beginPath(); ctx.moveTo(p,yb0); ctx.lineTo(p+inn,yb0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(p,yb1); ctx.lineTo(p+inn,yb1); ctx.stroke();
+
+  // linear ref
+  ctx.strokeStyle='rgba(255,255,255,0.07)'; ctx.lineWidth=1; ctx.setLineDash([4,7]);
+  const [lx0,ly0]=toC(0,0), [lx1,ly1]=toC(1,1);
+  ctx.beginPath(); ctx.moveTo(lx0,ly0); ctx.lineTo(lx1,ly1); ctx.stroke();
+  ctx.setLineDash([]);
+
+  if (nodes.length < 2) return;
+
+  // handle lines
+  ctx.strokeStyle='rgba(71,212,255,0.28)'; ctx.lineWidth=1*devicePixelRatio; ctx.setLineDash([3,5]);
+  for (let i=0; i<nodes.length; i++) {
+    const n=nodes[i]; const [ax,ay]=toC(...n.a);
+    if (i>0) { const [hx,hy]=toC(...n.h1); ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(hx,hy); ctx.stroke(); }
+    if (i<nodes.length-1) { const [hx,hy]=toC(...n.h2); ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(hx,hy); ctx.stroke(); }
+  }
+  ctx.setLineDash([]);
+
+  // curve
+  ctx.strokeStyle='#e8ff47'; ctx.lineWidth=2.5*devicePixelRatio;
+  ctx.shadowColor='#e8ff47'; ctx.shadowBlur=9*devicePixelRatio;
+  ctx.beginPath();
+  const [sx0,sy0]=toC(...nodes[0].a); ctx.moveTo(sx0,sy0);
+  for (let i=0; i<nodes.length-1; i++) {
+    const [c1x,c1y]=toC(...nodes[i].h2);
+    const [c2x,c2y]=toC(...nodes[i+1].h1);
+    const [ex,ey]=toC(...nodes[i+1].a);
+    ctx.bezierCurveTo(c1x,c1y,c2x,c2y,ex,ey);
+  }
+  ctx.stroke(); ctx.shadowBlur=0;
+
+  // handles and anchors
+  const HR=5.5*devicePixelRatio, AR=7*devicePixelRatio;
+  for (let i=0; i<nodes.length; i++) {
+    const n=nodes[i];
+    if (i>0)              drawH(...toC(...n.h1), HR, sel(i,'h1'));
+    if (i<nodes.length-1) drawH(...toC(...n.h2), HR, sel(i,'h2'));
+    drawA(...toC(...n.a), AR, sel(i,'a'));
+  }
+
+  updateChips(); updateCode();
+}
+
+function sel(ni, part) { return selected && selected.ni===ni && selected.part===part; }
+
+function drawH(x,y,r,active) {
+  ctx.save();
+  if (active) { ctx.shadowColor='#47d4ff'; ctx.shadowBlur=12*devicePixelRatio; }
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+  ctx.fillStyle=active?'#47d4ff':'#080810';
+  ctx.strokeStyle='#47d4ff'; ctx.lineWidth=1.5*devicePixelRatio;
+  ctx.fill(); ctx.stroke(); ctx.restore();
+}
+
+function drawA(x,y,r,active) {
+  ctx.save();
+  if (active) { ctx.shadowColor='#ff6b6b'; ctx.shadowBlur=14*devicePixelRatio; }
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+  ctx.fillStyle=active?'#ff6b6b':'#1a1a2a';
+  ctx.strokeStyle='#ff6b6b'; ctx.lineWidth=2*devicePixelRatio;
+  ctx.fill(); ctx.stroke(); ctx.restore();
+}
+
+// ── Pointer helpers ───────────────────────────────────────────
+function evtPt(e) {
+  const r=canvas.getBoundingClientRect(), scl=canvas.width/r.width;
+  let px, py;
+  if (e.touches) { px=e.touches[0].clientX; py=e.touches[0].clientY; }
+  else { px=e.clientX; py=e.clientY; }
+  return fromC((px-r.left)*scl, (py-r.top)*scl);
+}
+
+function hitTest(norm) {
+  const [nx,ny]=norm, T=0.055;
+  for (let i=0; i<nodes.length; i++) {
+    const n=nodes[i];
+    if (i>0 && d2(nx,ny,...n.h1)<T) return {ni:i,part:'h1'};
+    if (i<nodes.length-1 && d2(nx,ny,...n.h2)<T) return {ni:i,part:'h2'};
+  }
+  for (let i=0; i<nodes.length; i++) {
+    if (d2(nx,ny,...nodes[i].a)<T) return {ni:i,part:'a'};
+  }
+  return null;
+}
+
+function d2(x1,y1,x2,y2) { return Math.hypot(x1-x2,y1-y2); }
+
+// De Casteljau split — insert point at segment seg, parameter t
+function insertAt(seg, t) {
+  const n0=nodes[seg], n1=nodes[seg+1];
+  const p0=n0.a, p1=n0.h2, p2=n1.h1, p3=n1.a;
+  function lr(a,b,t){return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t];}
+  const q0=lr(p0,p1,t), q1=lr(p1,p2,t), q2=lr(p2,p3,t);
+  const r0=lr(q0,q1,t), r1=lr(q1,q2,t);
+  const s0=lr(r0,r1,t);
+  nodes[seg].h2   = q0;
+  nodes[seg+1].h1 = q2;
+  nodes.splice(seg+1, 0, { a:s0, h1:r0, h2:r1 });
+}
+
+// Find closest point on curve, return {seg, t, dist}
+function closestOnCurve(nx, ny) {
+  let best={dist:Infinity,seg:0,t:0.5}, STEPS=200;
+  for (let seg=0; seg<nodes.length-1; seg++) {
+    for (let k=0; k<=STEPS; k++) {
+      const t=k/STEPS, [cx,cy]=evalSeg(seg,t);
+      const dd=d2(nx,ny,cx,cy);
+      if (dd<best.dist) best={dist:dd,seg,t};
+    }
+  }
+  return best;
+}
+
+// ── Events ────────────────────────────────────────────────────
+canvas.addEventListener('mousedown', onDown);
+canvas.addEventListener('touchstart', onDown, {passive:false});
+window.addEventListener('mousemove', onMove);
+window.addEventListener('touchmove', onMove, {passive:false});
+window.addEventListener('mouseup', onUp);
+window.addEventListener('touchend', onUp);
+
+function onDown(e) {
+  e.preventDefault();
+  const norm=evtPt(e), hit=hitTest(norm);
+  if (addMode) {
+    if (!hit) {
+      const c=closestOnCurve(...norm);
+      if (c.dist < 0.06) { insertAt(c.seg, c.t); clearPsel(); draw(); }
+    }
+    return;
+  }
+  if (hit) { selected=hit; isDragging=true; document.body.style.cursor='grabbing'; }
+  else selected=null;
+  updateDelBtn(); draw();
+}
+
+function onMove(e) {
+  if (!isDragging || !selected) return;
+  e.preventDefault();
+  let [nx,ny]=evtPt(e);
+  nx=snapV(nx); ny=snapV(ny);
+  const n=nodes[selected.ni];
+  if (selected.part==='a') {
+    // start and end anchors are locked at (0,0) and (1,1)
+    if (selected.ni===0 || selected.ni===nodes.length-1) return;
+    const dx=nx-n.a[0], dy=ny-n.a[1];
+    n.a=[nx,ny]; n.h1=[n.h1[0]+dx,n.h1[1]+dy]; n.h2=[n.h2[0]+dx,n.h2[1]+dy];
+  } else if (selected.part==='h1') {
+    n.h1=[nx,ny];
+  } else if (selected.part==='h2') {
+    n.h2=[nx,ny];
+  }
+  clearPsel(); draw();
+}
+
+function onUp() { isDragging=false; document.body.style.cursor=''; }
+
+// ── Toolbar ───────────────────────────────────────────────────
+document.getElementById('btnMode').addEventListener('click', () => {
+  addMode=!addMode;
+  const b=document.getElementById('btnMode');
+  b.textContent=addMode?'Mode: Add':'Mode: Select';
+  b.classList.toggle('on',addMode);
+  document.getElementById('chint').textContent = addMode
+    ? 'ADD MODE: tap near the curve to insert a new point'
+    : 'SELECT: drag red anchors or blue handles  ·  switch to ADD to insert points';
+});
+
+document.getElementById('btnSnap').addEventListener('click', () => {
+  snapOn=!snapOn;
+  const b=document.getElementById('btnSnap');
+  b.textContent=`Snap: ${snapOn?'On':'Off'}`;
+  b.classList.toggle('on',snapOn);
+});
+
+document.getElementById('btnGrid').addEventListener('click', () => {
+  gridOn=!gridOn;
+  const b=document.getElementById('btnGrid');
+  b.textContent=`Grid: ${gridOn?'On':'Off'}`;
+  b.classList.toggle('on',gridOn);
+  draw();
+});
+
+document.getElementById('btnDelPt').addEventListener('click', () => {
+  if (!selected || selected.part!=='a') return;
+  if (selected.ni===0 || selected.ni===nodes.length-1) return;
+  if (nodes.length<=2) return;
+  nodes.splice(selected.ni,1);
+  selected=null; updateDelBtn(); clearPsel(); draw();
+});
+
+function updateDelBtn() {
+  const s=selected, b=document.getElementById('btnDelPt');
+  b.style.display=(s&&s.part==='a'&&s.ni>0&&s.ni<nodes.length-1&&nodes.length>2)?'':'none';
+}
+
+// ── Presets ───────────────────────────────────────────────────
+function clearPsel() { document.querySelectorAll('.pbtn').forEach(b=>b.classList.remove('on')); }
+
+document.querySelectorAll('.pbtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    PRESETS[btn.dataset.p]();
+    clearPsel(); btn.classList.add('on'); draw();
+  });
+});
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  PRESETS.linear(); clearPsel();
+  document.querySelector('[data-p="linear"]').classList.add('on'); draw();
+});
+
+// ── Curve evaluation ──────────────────────────────────────────
+function evalSeg(seg, t) {
+  const a=nodes[seg], b=nodes[seg+1], mt=1-t;
+  return [
+    mt*mt*mt*a.a[0] + 3*mt*mt*t*a.h2[0] + 3*mt*t*t*b.h1[0] + t*t*t*b.a[0],
+    mt*mt*mt*a.a[1] + 3*mt*mt*t*a.h2[1] + 3*mt*t*t*b.h1[1] + t*t*t*b.a[1],
+  ];
+}
+
+function evalCurve(xIn) {
+  xIn=Math.max(0,Math.min(1,xIn));
+  if (nodes.length<2) return xIn;
+  for (let seg=0; seg<nodes.length-1; seg++) {
+    const x0=nodes[seg].a[0], x1=nodes[seg+1].a[0];
+    if (xIn<x0-1e-9 || xIn>x1+1e-9) continue;
+    let t=(x1>x0)?(xIn-x0)/(x1-x0):0.5;
+    for (let k=0; k<12; k++) {
+      const [cx]=evalSeg(seg,t);
+      const a=nodes[seg], b=nodes[seg+1], mt=1-t;
+      const dx=3*(mt*mt*(a.h2[0]-a.a[0])+2*mt*t*(b.h1[0]-a.h2[0])+t*t*(b.a[0]-b.h1[0]));
+      if (Math.abs(dx)<1e-9) break;
+      t-=(cx-xIn)/dx; t=Math.max(0,Math.min(1,t));
+    }
+    return evalSeg(seg,t)[1];
+  }
+  return evalSeg(nodes.length-2,1)[1];
+}
+
+// ── Preview graph ─────────────────────────────────────────────
+function drawGraph(progress) {
+  const w=pgCv.width, h=pgCv.height, dpr=devicePixelRatio;
+  const pad=7*dpr, iw=w-2*pad, ih=h-2*pad;
+  pgCtx.clearRect(0,0,w,h);
+
+  // value range might go outside 0-1 so we map with a visible range of -0.3 to 1.3
+  const yMin=-0.35, yMax=1.35, yRange=yMax-yMin;
+  function gy(v) { return h-pad - (v-yMin)/yRange * ih; }
+
+  // zero and one lines
+  pgCtx.strokeStyle='rgba(255,255,255,0.06)'; pgCtx.lineWidth=1;
+  pgCtx.beginPath(); pgCtx.moveTo(pad,gy(0)); pgCtx.lineTo(w-pad,gy(0)); pgCtx.stroke();
+  pgCtx.beginPath(); pgCtx.moveTo(pad,gy(1)); pgCtx.lineTo(w-pad,gy(1)); pgCtx.stroke();
+
+  // curve
+  pgCtx.strokeStyle='rgba(232,255,71,0.55)'; pgCtx.lineWidth=1.5*dpr;
+  pgCtx.beginPath();
+  const STEPS=180;
+  for (let i=0; i<=STEPS; i++) {
+    const x=i/STEPS, val=evalCurve(x);
+    const cx=pad+x*iw, cy=gy(val);
+    i===0 ? pgCtx.moveTo(cx,cy) : pgCtx.lineTo(cx,cy);
+  }
+  pgCtx.stroke();
+
+  // scrubber
+  const px=pad+progress*iw, val=evalCurve(progress);
+  const py=gy(val);
+  pgCtx.strokeStyle='rgba(71,212,255,0.5)'; pgCtx.lineWidth=1*dpr; pgCtx.setLineDash([3,5]);
+  pgCtx.beginPath(); pgCtx.moveTo(px,0); pgCtx.lineTo(px,h); pgCtx.stroke();
+  pgCtx.setLineDash([]);
+  pgCtx.beginPath(); pgCtx.arc(px,py,4*dpr,0,Math.PI*2);
+  pgCtx.fillStyle='#47d4ff'; pgCtx.shadowColor='#47d4ff'; pgCtx.shadowBlur=8*dpr;
+  pgCtx.fill(); pgCtx.shadowBlur=0;
+}
+
+// ── Animation playback ────────────────────────────────────────
+const durSlider = document.getElementById('durSlider');
+const durLbl    = document.getElementById('durLbl');
+const pfill     = document.getElementById('pfill');
+
+durSlider.addEventListener('input', () => {
+  durLbl.textContent=(durSlider.value/1000).toFixed(1)+'s';
+});
+
+document.getElementById('btnPlay').addEventListener('click', playAnim);
+
+document.getElementById('btnLoop').addEventListener('click', () => {
+  looping=!looping;
+  document.getElementById('btnLoop').textContent=`Loop: ${looping?'On':'Off'}`;
+  document.getElementById('btnLoop').classList.toggle('on',looping);
+  if (looping) playAnim();
+});
+
+document.getElementById('btnPP').addEventListener('click', () => {
+  pingpong=!pingpong;
+  document.getElementById('btnPP').textContent=`PingPong: ${pingpong?'On':'Off'}`;
+  document.getElementById('btnPP').classList.toggle('on',pingpong);
+  if (pingpong) playAnim();
+});
+
+function playAnim() {
+  if (animReq) cancelAnimationFrame(animReq);
+  const dur=+durSlider.value;
+  let startTs=null, dir=1;
+
+  const pT=document.getElementById('pT');
+  const pS=document.getElementById('pS');
+  const pR=document.getElementById('pR');
+  const pO=document.getElementById('pO');
+  const sceneT=document.getElementById('sT');
+  const tW=sceneT.getBoundingClientRect().width - 20 - 12;
+
+  function step(ts) {
+    if (!startTs) startTs=ts;
+    let raw=Math.min(1,(ts-startTs)/dur);
+    const t=dir>0?raw:1-raw;
+    const v=evalCurve(t);
+
+    // Translate X
+    pT.style.left=(6+v*tW)+'px';
+
+    // Scale: 0.15 → 1.8
+    const sc=Math.max(0.01, 0.15+v*1.65);
+    pS.style.transform=`scale(${sc})`;
+
+    // Rotate 0→360
+    pR.style.transform=`rotate(${v*360}deg)`;
+
+    // Opacity 0→1
+    pO.style.opacity=Math.max(0,Math.min(1,v));
+
+    // progress
+    pfill.style.width=(t*100)+'%';
+    drawGraph(t);
+
+    if (raw<1) {
+      animReq=requestAnimationFrame(step);
+    } else if (pingpong) {
+      dir*=-1; startTs=ts; animReq=requestAnimationFrame(step);
+    } else if (looping) {
+      setTimeout(()=>{ startTs=null; animReq=requestAnimationFrame(step); }, 300);
+    }
+  }
+  animReq=requestAnimationFrame(step);
+}
+
+// ── Chips ─────────────────────────────────────────────────────
+function updateChips() {
+  document.getElementById('chips').innerHTML = `
+    <div class="chip">Anchors <b>${nodes.length}</b></div>
+    <div class="chip">Segments <b>${nodes.length-1}</b></div>
+    <div class="chip">Start <b>${nodes[0].a[0].toFixed(2)}, ${nodes[0].a[1].toFixed(2)}</b></div>
+    <div class="chip">End <b>${nodes[nodes.length-1].a[0].toFixed(2)}, ${nodes[nodes.length-1].a[1].toFixed(2)}</b></div>
+  `;
+}
+
+// ── Export ────────────────────────────────────────────────────
+function buildLUT(steps=32) {
+  const lut=[];
+  for (let i=0; i<=steps; i++) lut.push(+evalCurve(i/steps).toFixed(5));
+  return lut;
+}
+
+function cssStr() {
+  if (nodes.length===2) {
+    const x1=nodes[0].h2[0].toFixed(3), y1=nodes[0].h2[1].toFixed(3);
+    const x2=nodes[1].h1[0].toFixed(3), y2=nodes[1].h1[1].toFixed(3);
+    return `cubic-bezier(${x1}, ${y1}, ${x2}, ${y2})`;
+  }
+  return `/* multi-point: use LUT */`;
+}
+
+function getCode(tab) {
+  const css=cssStr(), lut=buildLUT(32);
+  if (tab==='css') return `/* CSS Easing */
+.element {
+  transition: all 0.8s ${css};
+  animation-timing-function: ${css};
+}
+
+@keyframes slide {
+  from { transform: translateX(0); }
+  to   { transform: translateX(200px); }
+}`;
+
+  if (tab==='js') return `// JS / GSAP
+const ease = "${css}";
+
+// Web Animations API
+el.animate([
+  { transform: "translateX(0)" },
+  { transform: "translateX(200px)" }
+], { duration: 800, easing: ease });
+
+// GSAP
+gsap.to(".el", { duration: 0.8, x: 200, ease });
+
+// LUT sampler (multi-segment curves)
+const lut = [${lut.slice(0,6).map(v=>v.toFixed(3)).join(', ')}, ...];
+function ease(t) {
+  const n = lut.length - 1, i = Math.min(n-1, Math.floor(t*n));
+  return lut[i] * (1-(t*n-i)) + lut[i+1] * (t*n-i);
+}`;
+
+  if (tab==='lut') {
+    const rows=[];
+    for (let i=0; i<lut.length; i+=8)
+      rows.push('  '+lut.slice(i,i+8).map(v=>v.toFixed(4)).join(', '));
+    return `// LUT — ${lut.length} samples, t:0→1 maps to eased value
+const lut = [\n${rows.join(',\n')}\n];
+
+function sample(t) {
+  const n = lut.length - 1;
+  const i = Math.min(n - 1, Math.floor(t * n));
+  const f = t * n - i;
+  return lut[i] * (1 - f) + lut[i + 1] * f;
+}`;
+  }
+
+  if (tab==='json') return JSON.stringify({
+    type: nodes.length===2 ? 'cubic-bezier' : 'multi-segment-spline',
+    css: css,
+    nodes: nodes.map(n=>({
+      anchor:    n.a.map(v=>+v.toFixed(4)),
+      handleIn:  n.h1.map(v=>+v.toFixed(4)),
+      handleOut: n.h2.map(v=>+v.toFixed(4)),
+    })),
+    lut_32: lut,
+  }, null, 2);
+}
+
+function updateCode() {
+  const code=getCode(currentTab);
+  const flash=document.getElementById('cflash');
+  document.getElementById('codeblock').textContent=code;
+  document.getElementById('codeblock').appendChild(flash);
+}
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+    t.classList.add('on'); currentTab=t.dataset.t; updateCode();
+  });
+});
+
+document.getElementById('btnCopy').addEventListener('click', () => {
+  navigator.clipboard.writeText(getCode(currentTab)).then(() => {
+    const f=document.getElementById('cflash');
+    f.classList.add('on'); setTimeout(()=>f.classList.remove('on'),1100);
+  });
+});
+
+document.getElementById('btnDl').addEventListener('click', () => {
+  const ext=currentTab==='json'?'json':currentTab==='css'?'css':'js';
+  const a=Object.assign(document.createElement('a'), {
+    href:URL.createObjectURL(new Blob([getCode(currentTab)],{type:'text/plain'})),
+    download:`curve_${Date.now().toString(36)}.${ext}`
+  });
+  a.click();
+});
+
+// ── Save / Load ────────────────────────────────────────────────
+document.getElementById('btnSave').addEventListener('click', () => {
+  const name=prompt('Name this curve:', `curve_${Date.now().toString(36)}`);
+  if (!name) return;
+  saved.push({ name, nodes:JSON.parse(JSON.stringify(nodes)), thumb:makeThumbnail(), ts:Date.now() });
+  localStorage.setItem('cv2', JSON.stringify(saved));
+  renderSaved();
+});
+
+function makeThumbnail() {
+  const oc=document.createElement('canvas'); oc.width=oc.height=60;
+  const ox=oc.getContext('2d'); const pad=6, inn=48;
+  ox.fillStyle='#14141f'; ox.fillRect(0,0,60,60);
+  ox.strokeStyle='#e8ff47'; ox.lineWidth=1.5;
+  function tp(nx,ny){return [pad+nx*inn, 60-pad-ny*inn];}
+  ox.beginPath(); const [sx,sy]=tp(...nodes[0].a); ox.moveTo(sx,sy);
+  for (let seg=0; seg<nodes.length-1; seg++) {
+    const [c1x,c1y]=tp(...nodes[seg].h2), [c2x,c2y]=tp(...nodes[seg+1].h1), [ex,ey]=tp(...nodes[seg+1].a);
+    ox.bezierCurveTo(c1x,c1y,c2x,c2y,ex,ey);
+  }
+  ox.stroke(); return oc.toDataURL();
+}
+
+function renderSaved() {
+  const list=document.getElementById('savedList');
+  if (!saved.length) { list.innerHTML='<div class="empty">No saved curves yet.</div>'; return; }
+  list.innerHTML='';
+  saved.slice().reverse().forEach((item,ri) => {
+    const i=saved.length-1-ri;
+    const div=document.createElement('div'); div.className='srow';
+    div.innerHTML=`<img src="${item.thumb}" width="44" height="44"><span class="sname">${item.name}</span><span class="sdel">&#x2715;</span>`;
+    div.querySelector('.sname').addEventListener('click', () => {
+      nodes=JSON.parse(JSON.stringify(item.nodes)); clearPsel(); draw();
+    });
+    div.querySelector('.sdel').addEventListener('click', e => {
+      e.stopPropagation(); saved.splice(i,1);
+      localStorage.setItem('cv2',JSON.stringify(saved)); renderSaved();
+    });
+    list.appendChild(div);
+  });
+}
+
+// ── Boot ───────────────────────────────────────────────────────
+PRESETS.linear();
+resizeAll();
+renderSaved();
+</script>
+</body>
+</html>
